@@ -11,3 +11,11 @@ Resources:
     Type: AWS::CloudFormation::Stack
     Properties:
       TemplateURL: !Sub "https://s3.amazonaws.com/${TemplateBucket}/example/auto-scaling-group/vpc.yaml"
+  ALBStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub "https://s3.amazonaws.com/${TemplateBucket}/example/auto-scaling-group/alb.yaml"
+      Parameters:
+        VpcId: !GetAtt VPCStack.Outputs.VpcId
+        PublicSubnet1Id: !GetAtt VPCStack.Outputs.PublicSubnet1Id
+        PublicSubnet2Id: !GetAtt VPCStack.Outputs.PublicSubnet2Id

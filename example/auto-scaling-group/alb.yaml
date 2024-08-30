@@ -1,0 +1,85 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: CloudFormation template to create EC2 Auto Scaling Group with ALB
+
+Parameters:
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: The VPC ID where the resources will be deployed
+  PublicSubnet1Id:
+    Type: AWS::EC2::Subnet::Id
+    Description: The first public subnet ID where the ALB will be deployed
+  PublicSubnet2Id:
+    Type: AWS::EC2::Subnet::Id
+    Description: The second public subnet ID where the ALB will be deployed
+
+Resources:
+  ALBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for the ALB
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: !Sub
+            - '${ShortStackName}-alb-sg'
+            - ShortStackName: !Select [ 4, !Split [ '-', !Select [ 2, !Split [ '/', !Ref 'AWS::StackId' ] ] ] ]
+
+  ApplicationLoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: !Sub
+        - '${ShortStackName}-alb'
+        - ShortStackName: !Select [ 4, !Split [ '-', !Select [ 2, !Split [ '/', !Ref 'AWS::StackId' ] ] ] ]
+      Subnets:
+        - !Ref PublicSubnet1Id
+        - !Ref PublicSubnet2Id
+      SecurityGroups:
+        - !Ref ALBSecurityGroup
+      Scheme: internet-facing
+      LoadBalancerAttributes:
+        - Key: idle_timeout.timeout_seconds
+          Value: '60'
+
+  Listener80:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref TargetGroup80
+      LoadBalancerArn: !Ref ApplicationLoadBalancer
+      Port: 80
+      Protocol: HTTP
+
+  TargetGroup80:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: !Sub
+        - '${ShortStackName}-tg-80'
+        - ShortStackName: !Select [ 4, !Split [ '-', !Select [ 2, !Split [ '/', !Ref 'AWS::StackId' ] ] ] ]
+      VpcId: !Ref VpcId
+      Port: 80
+      Protocol: HTTP
+      TargetType: instance
+      HealthCheckIntervalSeconds: 30
+      HealthCheckProtocol: HTTP
+      HealthCheckTimeoutSeconds: 5
+      HealthyThresholdCount: 5
+      UnhealthyThresholdCount: 2
+      Matcher:
+        HttpCode: '200'
+
+Outputs:
+  ALBSecurityGroup:
+    Description: Security Group ID for ALB
+    Value: !Ref ALBSecurityGroup
+  LoadBalancerDNSName:
+    Description: DNS name of the load balancer
+    Value: !GetAtt ApplicationLoadBalancer.DNSName
+  TargetGroup80:
+    Description: Target Group ID for 80 Port
+    Value: !Ref TargetGroup80
