@@ -1,0 +1,184 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: CloudFormation template to create EC2 Auto Scaling Group with ALB
+
+Parameters:
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: The VPC ID where the resources will be deployed
+  PrivateSubnet1Id:
+    Type: AWS::EC2::Subnet::Id
+    Description: The first private subnet ID where the EC2 instances will be deployed
+  PrivateSubnet2Id:
+    Type: AWS::EC2::Subnet::Id
+    Description: The second private subnet ID where the EC2 instances will be deployed
+  ALBSecurityGroupId:
+    Type: AWS::EC2::SecurityGroup::Id
+    Description: Security Group ID for ALB
+  AmiId:
+    Type: String
+    Description: The AMI ID for the EC2 instances
+  InstanceType:
+    Type: String
+    Default: t2.micro
+    Description: EC2 instance type
+  TargetGroup:
+    Type: String
+    Description: Target Group using ASG
+  MinSize:
+    Type: Number
+    Default: 1
+  MaxSize:
+    Type: Number
+    Default: 4
+  DesiredCapacity:
+    Type: Number
+    Default: 2
+
+Resources:
+  EC2KeyPair:
+    Type: AWS::EC2::KeyPair
+    Properties:
+      KeyName: !Sub "${AWS::StackName}-key"
+      KeyType: rsa
+      Tags:
+        - Key: Name
+          Value: !Sub "${AWS::StackName}-key"
+
+  EC2Role:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      Path: /
+      Policies:
+        - PolicyName: CloudWatchPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                  - logs:DescribeLogStreams
+                Resource: "*"
+        - PolicyName: PassRolePolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: iam:PassRole
+                Resource: "*"
+
+  InstanceSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for EC2 instances in the Auto Scaling group
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          SourceSecurityGroupId: !Ref ALBSecurityGroupId
+      Tags:
+        - Key: Name
+          Value: !Sub "${AWS::StackName}-inst-sg"
+
+  InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Path: /
+      Roles:
+        - Ref: EC2Role
+
+  LaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateData:
+        InstanceType: !Ref InstanceType
+        KeyName: !Ref EC2KeyPair
+        ImageId: !Ref AmiId
+        IamInstanceProfile:
+          Arn: !GetAtt InstanceProfile.Arn
+        SecurityGroupIds:
+          - !Ref InstanceSecurityGroup
+        UserData:
+          Fn::Base64: !Sub |
+            #!/bin/bash
+
+            # 모든 출력을 /var/log/user-data.log 파일로 리다이렉트
+            exec > /var/log/user-data.log 2>&1  
+
+            # CloudWatch Agent 설치 및 설정
+            sudo yum install amazon-cloudwatch-agent -y
+
+            # CloudWatch LogGroup 설정
+            cat <<EOF > /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
+            {
+                "agent": {
+                    "metrics_collection_interval": 60
+                },
+                "logs": {
+                    "logs_collected": {
+                        "files": {
+                            "collect_list": [
+                                {
+                                    "file_path": "/var/log/user-data.log",
+                                    "log_group_name": "${AWS::StackName}-user-data-logs",
+                                    "log_stream_name": "{instance_id}",
+                                    "timestamp_format": "%Y-%m-%d %H:%M:%S"
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+            EOF
+
+            # CloudWatch Agent 실행
+            sudo systemctl start amazon-cloudwatch-agent
+            sudo systemctl enable amazon-cloudwatch-agent
+
+            # Apache 웹 서버 설치
+            sudo yum install httpd -y
+            sudo systemctl start httpd
+            sudo systemctl enable httpd
+
+            # EC2 메타데이터 서비스에서 인스턴스 ID 가져오기
+            TOKEN=`curl -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds:21600"` && INSTANCE_ID=`curl -H "X-aws-ec2-metadata-token:$TOKEN" -v http://169.254.169.254/latest/meta-data/instance-id`
+
+            # 인스턴스 ID를 출력하는 HTML 파일 생성
+            echo "<h1>인스턴스 ID: $INSTANCE_ID 에 접속했어요 </h1>" > /var/www/html/index.html
+            
+            # HTML 파일 읽기 권한 설정
+            sudo chmod 644 /var/www/html/index.html
+            
+            # Apache 서버 재시작
+            sudo systemctl restart httpd
+            
+            # CloudWatch 로그 전송 상태 확인 로그 추가
+            echo "CloudWatch Agent and Apache setup completed." >> /var/log/user-data.log
+
+  AutoScalingGroup:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      VPCZoneIdentifier:
+        - !Ref PrivateSubnet1Id
+        - !Ref PrivateSubnet2Id
+      LaunchTemplate:
+        LaunchTemplateId: !Ref LaunchTemplate
+        Version: !GetAtt LaunchTemplate.LatestVersionNumber
+      MinSize: !Ref MinSize
+      MaxSize: !Ref MaxSize
+      DesiredCapacity: !Ref DesiredCapacity
+      TargetGroupARNs:
+        - !Ref TargetGroup
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-asg'
+          PropagateAtLaunch: true
