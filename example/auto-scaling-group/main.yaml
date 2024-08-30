@@ -1,0 +1,13 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: CloudFormation main template
+
+Parameters:
+  TemplateBucket:
+    Type: String
+    Description: The name of the S3 bucket containing the templates and scripts
+
+Resources:
+  VPCStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub "https://s3.amazonaws.com/${TemplateBucket}/example/auto-scaling-group/vpc.yaml"
