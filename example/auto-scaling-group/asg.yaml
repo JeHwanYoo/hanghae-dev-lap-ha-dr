@@ -182,3 +182,8 @@ Resources:
         - Key: Name
           Value: !Sub '${AWS::StackName}-asg'
           PropagateAtLaunch: true
+
+Outputs:
+  AutoScalingGroup:
+    Description: Name of the existing Auto Scaling Group
+    Value: !Ref AutoScalingGroup
