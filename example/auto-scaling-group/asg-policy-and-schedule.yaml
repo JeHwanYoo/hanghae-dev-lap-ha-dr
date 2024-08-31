@@ -1,0 +1,48 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: CloudFormation template to create scheduled actions for ASG scaling based on different time periods.
+
+Parameters:
+  AutoScalingGroupName:
+    Type: String
+    Description: Name of the existing Auto Scaling Group
+
+Resources:
+  DayOffScalingAction:
+    Type: AWS::AutoScaling::ScheduledAction
+    Properties:
+      AutoScalingGroupName: !Ref AutoScalingGroupName
+      DesiredCapacity: 1
+      MinSize: 1
+      MaxSize: 2
+      Recurrence: "0 18 * * *"
+      TimeZone: "Asia/Seoul"
+
+  DayOnScalingAction:
+    Type: AWS::AutoScaling::ScheduledAction
+    Properties:
+      AutoScalingGroupName: !Ref AutoScalingGroupName
+      DesiredCapacity: 4
+      MinSize: 4
+      MaxSize: 6
+      Recurrence: "30 7 * * *"
+      TimeZone: "Asia/Seoul"
+
+  WeekOffScalingAction:
+    Type: AWS::AutoScaling::ScheduledAction
+    Properties:
+      AutoScalingGroupName: !Ref AutoScalingGroupName
+      DesiredCapacity: 1
+      MinSize: 1
+      MaxSize: 1
+      Recurrence: "0 0 * * FRI"
+      TimeZone: "Asia/Seoul"
+
+  WeekendScalingAction:
+    Type: AWS::AutoScaling::ScheduledAction
+    Properties:
+      AutoScalingGroupName: !Ref AutoScalingGroupName
+      DesiredCapacity: 1
+      MinSize: 1
+      MaxSize: 1
+      Recurrence: "0 8 * * SAT,SUN"
+      TimeZone: "Asia/Seoul"

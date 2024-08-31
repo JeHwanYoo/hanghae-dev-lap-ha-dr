@@ -30,9 +30,15 @@ Resources:
         ALBSecurityGroupId: !GetAtt ALBStack.Outputs.ALBSecurityGroup
         TargetGroup: !GetAtt ALBStack.Outputs.TargetGroup80
         AmiId: !Sub '{{resolve:ssm:/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64}}'
-  ASGPolicyAndAlaramStack:
+  ASGPolicyAndAlarmStack:
     Type: AWS::CloudFormation::Stack
     Properties:
       TemplateURL: !Sub "https://s3.amazonaws.com/${TemplateBucket}/example/auto-scaling-group/asg-policy-and-alarm.yaml"
+      Parameters:
+        AutoScalingGroupName: !GetAtt ASGStack.Outputs.AutoScalingGroup
+  ASGPolicyAndScheduleStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub "https://s3.amazonaws.com/${TemplateBucket}/example/auto-scaling-group/asg-policy-and-schedule.yaml"
       Parameters:
         AutoScalingGroupName: !GetAtt ASGStack.Outputs.AutoScalingGroup
