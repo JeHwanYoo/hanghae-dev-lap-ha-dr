@@ -1,0 +1,59 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: CloudFormation template to create a simple DynamoDB table with a global read replica and backup configuration.
+
+Resources:
+  # DynamoDB 테이블 생성
+  SimpleDynamoDBTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: SimpleTable
+      AttributeDefinitions:
+        - AttributeName: Id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: Id
+          KeyType: HASH
+      BillingMode: PAYPERREQUEST
+      StreamSpecification:
+        StreamViewType: NEW_AND_OLD_IMAGES  # 읽기 복제본에 필요한 스트림 활성화
+      Tags:
+        - Key: Environment
+          Value: Production
+    DeletionPolicy: Delete
+
+  ReadReplica:
+    Type: AWS::DynamoDB::GlobalTable
+    Properties:
+      TableName: SimpleTable
+      AttributeDefinitions:
+        - AttributeName: Id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: Id
+          KeyType: HASH
+      BillingMode: PAYPERREQUEST
+      StreamSpecification:
+        StreamViewType: NEW_AND_OLD_IMAGES
+      Replicas:
+        - Region: ap-northeast-1  # 복제본이 생성될 리전 (예: 도쿄 리전)
+    DeletionPolicy: Delete
+
+  DynamoDBBackup:
+    Type: AWS::DynamoDB::Backup
+    Properties:
+      TableName: !Ref SimpleDynamoDBTable
+      BackupName: !Sub "${AWS::StackName}-DynamoDB-Backup"
+    DeletionPolicy: Delete
+
+Outputs:
+  DynamoDBTableArn:
+    Description: The ARN of the created DynamoDB Table
+    Value: !GetAtt SimpleDynamoDBTable.Arn
+
+  ReadReplicaArn:
+    Description: The ARN of the created DynamoDB Read Replica
+    Value: !GetAtt ReadReplica.Arn
+
+  BackupArn:
+    Description: The ARN of the created DynamoDB Backup
+    Value: !Ref DynamoDBBackup
