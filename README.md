@@ -109,4 +109,5 @@ aws cloudformation delete-stack --stack-name "$STACK_NAME" --profile "$AWS_PROFI
 - [ ] RDS Read Replica
 - [ ] RDS Backup
 - [ ] AWS ECS + CodePipeline CI/CD
+- [ ] 고가용성 지표 측정
 - [ ] ... (계속 아이디어 생각 중)
