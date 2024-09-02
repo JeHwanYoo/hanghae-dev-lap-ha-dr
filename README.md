@@ -103,6 +103,8 @@ aws cloudformation delete-stack --stack-name "$STACK_NAME" --profile "$AWS_PROFI
 ## Todo
 
 - [x] EC2 AutoScalingGroup
+- [ ] EC2 웜 풀
 - [ ] DynamoDB Read Replica
 - [ ] DynamoDB Backup
+- [ ] AWS ECS + CodePipeline CI/CD
 - [ ] ... (계속 아이디어 생각 중)
