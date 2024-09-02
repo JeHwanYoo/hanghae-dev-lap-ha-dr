@@ -99,3 +99,10 @@ aws cloudformation delete-stack --stack-name "$STACK_NAME" --profile "$AWS_PROFI
 ## FAQ
 
 혹시 동작중에 문제가 있거나, 궁금한 점이 있다면 Issue에 올려주세요.
+
+## Todo
+
+- [x] EC2 AutoScalingGroup
+- [ ] DynamoDB Read Replica
+- [ ] DynamoDB Backup
+- [ ] ... (계속 아이디어 생각 중)
